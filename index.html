@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Study Buddy</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f8ff;
+      padding: 20px;
+    }
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1, h2 {
+      text-align: center;
+      color: #333;
+    }
+    textarea, input[type="text"], select {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 5px 0;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .flashcard {
+      margin-top: 10px;
+      background-color: #ffe;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      min-height: 60px;
+      font-weight: bold;
+      font-size: 18px;
+    }
+    .quiz-option {
+      display: block;
+      margin: 5px 0;
+      padding: 8px;
+      background-color: #e0f7fa;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .quiz-option:hover {
+      background-color: #b2ebf2;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Smart Study Buddy 📚</h1>
+
+    <!-- Add Notes -->
+    <div class="section">
+      <h2>Add Your Notes</h2>
+      <input type="text" id="subjectInput" placeholder="Subject (Math, Science, etc.)">
+      <textarea id="noteInput" placeholder="Type your note here..."></textarea>
+      <button onclick="addNote()">Add Note</button>
+    </div>
+
+    <!-- Flashcards -->
+    <div class="section">
+      <h2>Flashcards</h2>
+      <select id="subjectFilter" onchange="filterFlashcards()">
+        <option value="All">All Subjects</option>
+      </select>
+      <button onclick="showFlashcard()">Show Flashcard</button>
+      <div id="flashcard" class="flashcard"></div>
+      <button onclick="flipFlashcard()">Flip Card</button>
+    </div>
+
+    <!-- Multiple Choice Quiz -->
+    <div class="section">
+      <h2>Multiple Choice Quiz</h2>
+      <select id="quizSubjectFilter">
+        <option value="All">All Subjects</option>
+      </select>
+      <button onclick="startQuiz()">Start Quiz</button>
+      <p id="quizQuestion"></p>
+      <div id="quizOptions"></div>
+      <p id="quizResult"></p>
+    </div>
+  </div>
+
+  <script>
+    let notes = JSON.parse(localStorage.getItem("notes")) || [];
+    let flashcards = [];
+    let filteredFlashcards = [];
+    let currentFlashcardIndex = 0;
+    let quizData = [];
+    let currentQuiz = null;
+
+    // Load subject filters
+    function updateSubjectFilters() {
+      const subjectSet = new Set(notes.map(n => n.subject));
+      const flashFilter = document.getElementById("subjectFilter");
+      const quizFilter = document.getElementById("quizSubjectFilter");
+
+      [flashFilter, quizFilter].forEach(filter => {
+        filter.innerHTML = '<option value="All">All Subjects</option>';
+        subjectSet.forEach(subj => {
+          const opt = document.createElement("option");
+          opt.value = subj;
+          opt.textContent = subj;
+          filter.appendChild(opt);
+        });
+      });
+    }
+
+    // Add a note
+    function addNote() {
+      const noteText = document.getElementById("noteInput").value.trim();
+      const subject = document.getElementById("subjectInput").value.trim() || "General";
+
+      if (!noteText) return;
+
+      const note = { text: noteText, subject: subject };
+      notes.push(note);
+      localStorage.setItem("notes", JSON.stringify(notes));
+      document.getElementById("noteInput").value = "";
+      document.getElementById("subjectInput").value = "";
+
+      createFlashcards();
+      updateSubjectFilters();
+    }
+
+    // Create flashcards from notes
+    function createFlashcards() {
+      flashcards = notes.flatMap(note => {
+        const sentences = note.text.split(/[\.\?!]/).filter(Boolean);
+        return sentences.map(s => ({
+          question: s.trim() + "?",
+          answer: note.text.trim(),
+          subject: note.subject
+        }));
+      });
+    }
+
+    // Show flashcard
+    function showFlashcard() {
+      const subject = document.getElementById("subjectFilter").value;
+      filteredFlashcards = subject === "All" ? flashcards : flashcards.filter(f => f.subject === subject);
+
+      if (filteredFlashcards.length === 0) {
+        alert("No flashcards available for this subject!");
+        return;
+      }
+
+      currentFlashcardIndex = Math.floor(Math.random() * filteredFlashcards.length);
+      document.getElementById("flashcard").textContent = filteredFlashcards[currentFlashcardIndex].question;
+    }
+
+    // Flip flashcard
+    function flipFlashcard() {
+      if (!filteredFlashcards[currentFlashcardIndex]) return;
+      const card = document.getElementById("flashcard");
+      const flash = filteredFlashcards[currentFlashcardIndex];
+      card.textContent = card.textContent === flash.question ? flash.answer : flash.question;
+    }
+
+    // Quiz functions
+    function startQuiz() {
+      const subject = document.getElementById("quizSubjectFilter").value;
+      quizData = subject === "All" ? flashcards : flashcards.filter(f => f.subject === subject);
+
+      if (quizData.length === 0) {
+        alert("No quiz questions available!");
+        return;
+      }
+
+      currentQuiz = quizData[Math.floor(Math.random() * quizData.length)];
+      document.getElementById("quizQuestion").textContent = currentQuiz.question;
+
+      const optionsContainer = document.getElementById("quizOptions");
+      optionsContainer.innerHTML = "";
+      const answers = [currentQuiz.answer];
+
+      while (answers.length < Math.min(4, quizData.length)) {
+        const randAnswer = quizData[Math.floor(Math.random() * quizData.length)].answer;
+        if (!answers.includes(randAnswer)) answers.push(randAnswer);
+      }
+
+      answers.sort(() => Math.random() - 0.5);
+
+      answers.forEach(ans => {
+        const btn = document.createElement("button");
+        btn.textContent = ans;
+        btn.className = "quiz-option";
+        btn.onclick = () => checkQuizAnswer(ans);
+        optionsContainer.appendChild(btn);
+      });
+
+      document.getElementById("quizResult").textContent = "";
+    }
+
+    function checkQuizAnswer(selected) {
+      const result = document.getElementById("quizResult");
+      if (selected === currentQuiz.answer) {
+        result.textContent = "✅ Correct!";
+      } else {
+        result.textContent = "❌ Wrong. Correct answer: " + currentQuiz.answer;
+      }
+    }
+
+    // Initialize
+    createFlashcards();
+    updateSubjectFilters();
+  </script>
+</body>
+</html>
